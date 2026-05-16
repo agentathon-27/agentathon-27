@@ -288,6 +288,11 @@ body {
 }
 
 /* Markdown-like formatting in agent responses */
+.agent-text {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+}
 .agent-text h3 { font-weight: 700; margin-bottom: 6px; color: var(--text-primary); }
 .agent-text p { margin-bottom: 8px; line-height: 1.7; }
 .agent-text ul { list-style: disc; padding-left: 20px; margin-bottom: 8px; }
@@ -299,6 +304,8 @@ body {
   border-radius: 4px;
   font-family: var(--font-mono);
   font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 /* SMS modal */
