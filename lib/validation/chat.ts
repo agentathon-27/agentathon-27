@@ -37,7 +37,7 @@ export const uploadResponseSchema = z.object({
   file: z.object({
     name: z.string(),
     sizeBytes: z.number().int().nonnegative(),
-    uri: z.string().min(1),
+    uri: z.string().default(""),
     chunks: z.number().int().nonnegative(),
   }),
   message: z.string(),

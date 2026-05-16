@@ -43,20 +43,29 @@ export async function POST(req: NextRequest) {
     const file = fileParse.data;
 
     const bytes = Buffer.from(await file.arrayBuffer());
-    const fm = new GoogleAIFileManager(getApiKey());
 
-    // Run the Files API upload and the local RAG indexing concurrently — the
-    // Files API URI is the long-context fallback; the embedded chunks power
-    // the cheaper retrieval path in BudgetAnalyst.
-    const [upload, text] = await Promise.all([
-      fm.uploadFile(bytes, { mimeType: "application/pdf", displayName: file.name }),
-      extractPdfText(bytes),
-    ]);
+    // RAG (local) is the primary path. The Files API upload is best-effort —
+    // it's only used as a long-context fallback when local indexing fails.
+    const text = await extractPdfText(bytes);
     const index = await buildIndex(text);
 
+    let fileUri = "";
+    let mimeType = "application/pdf";
+    try {
+      const fm = new GoogleAIFileManager(getApiKey());
+      const upload = await fm.uploadFile(bytes, {
+        mimeType: "application/pdf",
+        displayName: file.name,
+      });
+      fileUri = upload.file.uri;
+      mimeType = upload.file.mimeType;
+    } catch (e) {
+      console.warn("Files API upload failed (RAG will still work):", e instanceof Error ? e.message : e);
+    }
+
     attachPdf(meta.data.sessionId, {
-      fileUri: upload.file.uri,
-      mimeType: upload.file.mimeType,
+      fileUri,
+      mimeType,
       displayName: file.name,
       uploadedAt: Date.now(),
       index,
@@ -68,7 +77,7 @@ export async function POST(req: NextRequest) {
       file: {
         name: file.name,
         sizeBytes: file.size,
-        uri: upload.file.uri,
+        uri: fileUri,
         chunks: index.length,
       },
       message: `Indexed "${file.name}" into ${index.length} chunks. The BudgetAnalyst will retrieve the most relevant passages for each question.`,
