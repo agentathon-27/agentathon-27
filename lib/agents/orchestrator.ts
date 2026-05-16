@@ -10,7 +10,6 @@
 import {
   GoogleGenerativeAI,
   SchemaType,
-  type Content,
   type FunctionDeclarationsTool,
   type Part,
 } from "@google/generative-ai";

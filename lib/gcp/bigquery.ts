@@ -43,7 +43,7 @@ export interface BudgetLineItem {
   ingested_at: string;
 }
 
-export async function insertBudgetLineItems(_rows: BudgetLineItem[]): Promise<void> {
+export async function insertBudgetLineItems(): Promise<void> {
   const dataset = process.env.BIGQUERY_DATASET;
   if (!dataset) {
     throw new Error(
@@ -54,6 +54,6 @@ export async function insertBudgetLineItems(_rows: BudgetLineItem[]): Promise<vo
   throw new Error("BigQuery integration stub — implement using @google-cloud/bigquery streaming inserts.");
 }
 
-export async function queryBudgetLineItems(_sql: string): Promise<BudgetLineItem[]> {
+export async function queryBudgetLineItems(): Promise<BudgetLineItem[]> {
   throw new Error("BigQuery integration stub — implement using @google-cloud/bigquery query API.");
 }

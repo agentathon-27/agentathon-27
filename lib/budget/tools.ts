@@ -1,5 +1,5 @@
 // Budget analysis tool functions — called by Gemini via function calling
-import { departments, wardAllocations, glossary, COUNTY_INFO, formatKES, type Department, type WardAllocation } from "./data";
+import { departments, wardAllocations, glossary, COUNTY_INFO, formatKES } from "./data";
 
 export interface ToolResult {
   success: boolean;

@@ -22,7 +22,7 @@ export interface DocAiResult {
   tables: ExtractedTable[];
 }
 
-export async function extractWithDocumentAI(_pdfBytes: Uint8Array): Promise<DocAiResult> {
+export async function extractWithDocumentAI(): Promise<DocAiResult> {
   const processorId = process.env.DOCUMENT_AI_PROCESSOR_ID;
   if (!processorId) {
     throw new Error(

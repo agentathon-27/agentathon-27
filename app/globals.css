@@ -149,6 +149,7 @@ body {
   backdrop-filter: blur(12px);
   border: 1px solid var(--border-glass);
   border-radius: 16px;
+  overflow: hidden;
 }
 
 /* Chat bubble styles */
@@ -156,12 +157,20 @@ body {
   background: var(--gradient-card);
   border: 1px solid var(--border-glass);
   border-radius: 16px 16px 16px 4px;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow: hidden;
 }
 
 .chat-bubble-user {
   background: var(--bg-glass);
   border: 1px solid var(--border-glass);
   border-radius: 16px 16px 4px 16px;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow: hidden;
 }
 
 /* Tool call indicator */

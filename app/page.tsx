@@ -111,12 +111,6 @@ export default function Home() {
     }
   }, [isLoading, sessionId]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage(input);
-    }
-  };
 
   const uploadPdf = useCallback(async (file: File) => {
     setPdfUploading(true);
