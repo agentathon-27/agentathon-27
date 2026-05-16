@@ -10,6 +10,9 @@ import {
 import { executeTool } from "@/lib/budget/tools";
 import { getSession, recordTool } from "./sessions";
 import { getApiKey, MODEL } from "./config";
+import { retrieve } from "./rag";
+
+const RAG_TOP_K = 5;
 
 import { getCountyName } from "@/lib/budget/counties";
 
@@ -96,15 +99,33 @@ export async function askBudgetAnalyst(sessionId: string, query: string): Promis
     systemInstruction: getSystemInstruction(countyName),
   });
 
-  // If a PDF is attached, include it as a file-data Part on the very first
-  // user turn so Gemini holds it in long context for the whole sub-session.
+  // RAG path: if a PDF is attached AND we have an embedding index, retrieve
+  // the top-K most relevant chunks and pass them inline. This avoids re-billing
+  // the full document on every turn. We fall back to Gemini's Files API
+  // long-context path only when no index is available (e.g. extraction failed).
   const userParts: Part[] = [];
-  if (session.pdf) {
+  if (session.pdf?.index && session.pdf.index.length > 0) {
+    const hits = await retrieve(query, session.pdf.index, RAG_TOP_K);
+    const context = hits
+      .map((h, i) => `--- Excerpt ${i + 1} (chunk #${h.id}) ---\n${h.text}`)
+      .join("\n\n");
+    recordTool(
+      sessionId,
+      "rag_retrieve",
+      `Retrieved ${hits.length} of ${session.pdf.index.length} chunks from "${session.pdf.displayName}".`,
+    );
+    userParts.push({
+      text:
+        `You have retrieved excerpts from "${session.pdf.displayName}". ` +
+        `Treat these as the authoritative source. If the answer is not in the excerpts, say so.\n\n` +
+        `${context}\n\n---\nUser question: ${query}`,
+    });
+  } else if (session.pdf) {
     userParts.push({
       fileData: { fileUri: session.pdf.fileUri, mimeType: session.pdf.mimeType },
     });
     userParts.push({
-      text: `(Source PDF: ${session.pdf.displayName}. Use it as the authoritative budget document for this conversation.)\n\nUser question: ${query}`,
+      text: `(Source PDF: ${session.pdf.displayName}. No local index — using long context.)\n\nUser question: ${query}`,
     });
   } else {
     userParts.push({ text: query });

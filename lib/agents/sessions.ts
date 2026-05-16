@@ -2,12 +2,15 @@
 // that conversational memory, uploaded PDFs, and gazette context follow the
 // user across turns.
 import type { Content } from "@google/generative-ai";
+import type { Chunk } from "./rag";
 
 export interface PdfRef {
   fileUri: string;
   mimeType: string;
   displayName: string;
   uploadedAt: number;
+  index?: Chunk[];
+  chunkCount?: number;
 }
 
 export interface SessionState {

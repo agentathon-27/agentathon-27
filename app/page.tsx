@@ -168,15 +168,15 @@ const messagesEndRef = useRef<HTMLDivElement>(null);
       <div className="header-line" />
 
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-3" style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border-glass)" }}>
+      <header className="flex items-center justify-between px-6 py-3.5 backdrop-blur-xl" style={{ background: "var(--bg-glass-strong)", borderBottom: "1px solid var(--border-glass)" }}>
         <div className="flex items-center gap-3">
-          <div className="text-2xl">🐕</div>
+          <div className="brand-mark">🐕</div>
           <div>
-            <h1 className="text-lg font-bold" style={{ color: "var(--text-primary)" }}>
+            <h1 className="text-base font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
               County Budget Watchdog
             </h1>
-            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              Multi-agent system • {countyData.info.name} {countyData.info.fiscalYear} • Gemini 1.5 Pro
+            <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+              Multi-agent system · {countyData.info.name} · FY {countyData.info.fiscalYear} · Gemini 1.5 Pro
             </p>
           </div>
         </div>
@@ -219,9 +219,8 @@ const messagesEndRef = useRef<HTMLDivElement>(null);
           >
             📱 Send SMS Digest
           </button>
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
-               style={{ background: "var(--bg-glass)", color: "var(--text-primary)", border: "1px solid var(--border-glass)" }}>
-            <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+          <div className="status-pill">
+            <span className="dot" />
             Agent Online
           </div>
         </div>
@@ -234,17 +233,26 @@ const messagesEndRef = useRef<HTMLDivElement>(null);
           <div className="flex-1 overflow-y-auto px-6 py-4" id="chat-messages">
             {/* Welcome state */}
             {messages.length === 0 && (
-              <div className="max-w-3xl mx-auto animate-fade-in-up">
+              <div className="max-w-3xl mx-auto animate-fade-in-up pt-6">
                 {/* Welcome message */}
-                <div className="glass-card p-6 mb-6">
-                  <h2 className="text-xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-                    🐕 Habari! I&apos;m the Budget Watchdog
+                <div className="glass-card p-7 mb-6">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="brand-mark" style={{ width: 44, height: 44, fontSize: 22 }}>🐕</div>
+                    <div>
+                      <span className="status-pill" style={{ marginBottom: 4 }}>
+                        <span className="dot" />
+                        Habari! Ready to dig in
+                      </span>
+                    </div>
+                  </div>
+                  <h2 className="text-2xl font-bold mb-2 tracking-tight" style={{ color: "var(--text-primary)" }}>
+                    Your county budget, in plain language.
                   </h2>
                   <p className="text-sm mb-4" style={{ color: "var(--text-secondary)", lineHeight: 1.7 }}>
-                    I help you understand how Kenya&apos;s <strong style={{ color: "var(--text-primary)" }}>47 counties</strong> allocate their budgets across departments, wards, and development priorities. Pick a county from the selector, ask a question, or upload a county budget PDF — I&apos;ll search the data and give you plain-language answers.
+                    I help you understand how Kenya&apos;s <strong style={{ color: "var(--accent-green)" }}>47 counties</strong> allocate their budgets across departments, wards, and development priorities. Pick a county, ask a question, or upload a county budget PDF — I&apos;ll search the data and give you plain-language answers.
                   </p>
-                  <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-                    💡 I use AI tools to search budget data, compare allocations, and generate SMS digests. Try the quick actions below!
+                  <p className="text-xs flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
+                    <span>💡</span> Try a quick action below, or type your own question.
                   </p>
                 </div>
 

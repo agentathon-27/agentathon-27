@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  serverExternalPackages: ["@google/generative-ai"],
+  serverExternalPackages: ["@google/generative-ai", "pdf-parse", "pdfjs-dist"],
   typescript: {
     // !! WARN !!
     // Dangerously allow production builds to successfully complete even if

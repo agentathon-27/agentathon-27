@@ -69,7 +69,8 @@ export function Message({ role, content, pending, toolsUsed, agentsCalled, times
 
   return (
     <div className="flex gap-3 items-start mb-4">
-      <div className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-background">
+      <div className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white"
+           style={{ background: "linear-gradient(135deg, var(--accent-green) 0%, var(--accent-blue) 100%)", boxShadow: "var(--shadow-glow)" }}>
         <SparkleIcon className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1 chat-bubble-agent px-5 py-3.5">

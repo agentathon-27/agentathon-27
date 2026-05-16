@@ -13,55 +13,67 @@ import { NextRequest, NextResponse } from "next/server";
 import { GoogleAIFileManager } from "@google/generative-ai/server";
 import { attachPdf } from "@/lib/agents/sessions";
 import { getApiKey } from "@/lib/agents/config";
+import { extractPdfText, buildIndex } from "@/lib/agents/rag";
+import {
+  flattenZodError,
+  uploadMetadataSchema,
+  uploadedFileSchema,
+  uploadResponseSchema,
+} from "@/lib/validation/chat";
 
 export const runtime = "nodejs";
 export const maxDuration = 300; // PDFs up to a few hundred pages can take a while.
 
-const MAX_BYTES = 25 * 1024 * 1024; // 25 MB hard cap.
-
 export async function POST(req: NextRequest) {
   try {
     const form = await req.formData();
-    const sessionId = String(form.get("sessionId") ?? "").trim();
-    const file = form.get("file");
 
-    if (!sessionId) {
-      return NextResponse.json({ error: "sessionId is required" }, { status: 400 });
+    const meta = uploadMetadataSchema.safeParse({ sessionId: form.get("sessionId") ?? "" });
+    if (!meta.success) {
+      return NextResponse.json({ error: flattenZodError(meta.error) }, { status: 400 });
     }
-    if (!(file instanceof File)) {
-      return NextResponse.json({ error: "file (multipart) is required" }, { status: 400 });
+
+    const fileParse = uploadedFileSchema.safeParse(form.get("file"));
+    if (!fileParse.success) {
+      const msg = flattenZodError(fileParse.error);
+      // Map common cases to better HTTP codes.
+      const status = /too large/i.test(msg) ? 413 : /pdf/i.test(msg) ? 415 : 400;
+      return NextResponse.json({ error: msg }, { status });
     }
-    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-      return NextResponse.json({ error: "Only PDF uploads are supported" }, { status: 415 });
-    }
-    if (file.size > MAX_BYTES) {
-      return NextResponse.json({ error: `File too large (max ${MAX_BYTES / 1_000_000} MB)` }, { status: 413 });
-    }
+    const file = fileParse.data;
 
     const bytes = Buffer.from(await file.arrayBuffer());
     const fm = new GoogleAIFileManager(getApiKey());
 
-    const upload = await fm.uploadFile(bytes, {
-      mimeType: "application/pdf",
-      displayName: file.name,
-    });
+    // Run the Files API upload and the local RAG indexing concurrently — the
+    // Files API URI is the long-context fallback; the embedded chunks power
+    // the cheaper retrieval path in BudgetAnalyst.
+    const [upload, text] = await Promise.all([
+      fm.uploadFile(bytes, { mimeType: "application/pdf", displayName: file.name }),
+      extractPdfText(bytes),
+    ]);
+    const index = await buildIndex(text);
 
-    attachPdf(sessionId, {
+    attachPdf(meta.data.sessionId, {
       fileUri: upload.file.uri,
       mimeType: upload.file.mimeType,
       displayName: file.name,
       uploadedAt: Date.now(),
+      index,
+      chunkCount: index.length,
     });
 
-    return NextResponse.json({
+    const body = uploadResponseSchema.parse({
       success: true,
       file: {
         name: file.name,
         sizeBytes: file.size,
         uri: upload.file.uri,
+        chunks: index.length,
       },
-      message: `Attached "${file.name}" to this session. The BudgetAnalyst will use it for follow-up questions.`,
+      message: `Indexed "${file.name}" into ${index.length} chunks. The BudgetAnalyst will retrieve the most relevant passages for each question.`,
     });
+    return NextResponse.json(body);
   } catch (error) {
     console.error("Upload error:", error);
     const msg = error instanceof Error ? error.message : "Upload failed";

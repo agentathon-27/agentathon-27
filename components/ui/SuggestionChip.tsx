@@ -11,12 +11,23 @@ export function SuggestionChip({ label, hint, onClick }: SuggestionChipProps) {
     <button
       type="button"
       onClick={onClick}
-      className="group flex h-32 w-full flex-col justify-between rounded-2xl border border-zinc-200 bg-white p-4 text-left transition hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/40 dark:hover:bg-zinc-900 stat-card"
+      className="group stat-card flex h-32 w-full flex-col justify-between text-left"
     >
-      <span className="line-clamp-3 text-sm text-secondary group-hover:text-primary font-medium">{label}</span>
       {hint && (
-        <span className="text-xs text-muted group-hover:text-secondary">{hint}</span>
+        <span className="inline-flex w-fit items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium"
+              style={{ background: "var(--accent-green-dim)", color: "var(--accent-green)", border: "1px solid color-mix(in oklab, var(--accent-green) 25%, transparent)" }}>
+          {hint}
+        </span>
       )}
+      <span className="line-clamp-3 text-sm font-medium leading-snug transition-colors"
+            style={{ color: "var(--text-primary)" }}>
+        {label}
+      </span>
+      <span className="flex items-center gap-1 text-[11px] font-medium opacity-0 transition-opacity group-hover:opacity-100"
+            style={{ color: "var(--accent-green)" }}>
+        Ask now
+        <span aria-hidden>→</span>
+      </span>
     </button>
   );
 }
