@@ -11,10 +11,12 @@ import { executeTool } from "@/lib/budget/tools";
 import { getSession, recordTool } from "./sessions";
 import { getApiKey, MODEL } from "./config";
 
-const SYSTEM_INSTRUCTION = `You are the BudgetAnalyst, a specialist sub-agent of the County Budget Watchdog system.
+import { getCountyName } from "@/lib/budget/counties";
+
+const getSystemInstruction = (countyName: string) => `You are the BudgetAnalyst, a specialist sub-agent of the County Budget Watchdog system for ${countyName}.
 
 Scope:
-- Answer questions about Nairobi City County FY 2025/2026 budget allocations.
+- Answer questions about ${countyName} budget allocations.
 - Compare spending across departments, wards, and programs.
 - Translate budget jargon into plain language for ward residents.
 - When the user has uploaded a PDF, use it as the source of truth (long-context). Cite page-level details when possible.
@@ -83,14 +85,16 @@ const tools: FunctionDeclarationsTool[] = [
 ];
 
 export async function askBudgetAnalyst(sessionId: string, query: string): Promise<string> {
+  const session = getSession(sessionId);
+  const countyId = session.countyId || "47";
+  const countyName = getCountyName(countyId);
+
   const genAI = new GoogleGenerativeAI(getApiKey());
   const model = genAI.getGenerativeModel({
     model: MODEL,
     tools,
-    systemInstruction: SYSTEM_INSTRUCTION,
+    systemInstruction: getSystemInstruction(countyName),
   });
-
-  const session = getSession(sessionId);
 
   // If a PDF is attached, include it as a file-data Part on the very first
   // user turn so Gemini holds it in long context for the whole sub-session.
@@ -114,7 +118,7 @@ export async function askBudgetAnalyst(sessionId: string, query: string): Promis
   while (result.response.functionCalls()?.length && iterations < MAX) {
     const calls = result.response.functionCalls()!;
     const responses: Part[] = calls.map((call) => {
-      const out = executeTool(call.name, (call.args || {}) as Record<string, unknown>);
+      const out = executeTool(countyId, call.name, (call.args || {}) as Record<string, unknown>);
       recordTool(sessionId, call.name, out.summary);
       return { functionResponse: { name: call.name, response: out.data as object } };
     });

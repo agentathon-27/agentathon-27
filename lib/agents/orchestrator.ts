@@ -19,11 +19,13 @@ import { askDigestGenerator } from "./digest-generator";
 import { consumeToolLog, getSession, recordTool } from "./sessions";
 import { getApiKey, MODEL } from "./config";
 
-const SYSTEM_INSTRUCTION = `You are the County Budget Watchdog 🐕 Orchestrator. You are the ENTRY POINT for every user request and you do NOT answer budget questions yourself. Your sole job is to PLAN and DELEGATE to the right specialist sub-agent.
+import { getCountyName } from "@/lib/budget/counties";
+
+const getSystemInstruction = (countyName: string) => `You are the County Budget Watchdog 🐕 Orchestrator for ${countyName}. You are the ENTRY POINT for every user request and you do NOT answer budget questions yourself. Your sole job is to PLAN and DELEGATE to the right specialist sub-agent.
 
 Sub-agents available as tools:
-- delegate_to_budget_analyst — for ANY question about Nairobi County FY 2025/2026 budget allocations, departments, wards, programs, comparisons, or the uploaded PDF.
-- delegate_to_gazette_monitor — for ANY question about Kenya Gazette notices, budget amendments, supplementary appropriations, reallocations, or withdrawals.
+- delegate_to_budget_analyst — for ANY question about ${countyName} budget allocations, departments, wards, programs, comparisons, or the uploaded PDF.
+- delegate_to_gazette_monitor — for ANY question about Kenya Gazette notices affecting ${countyName}, budget amendments, supplementary appropriations, reallocations, or withdrawals.
 - delegate_to_digest_generator — when the user wants an SMS digest or asks you to text/send a budget summary to a phone number.
 
 Rules:
@@ -34,12 +36,12 @@ Rules:
 5. Always return the specialist's response verbatim or with minimal connective wrapping. Do not paraphrase numbers.
 6. Be concise. Markdown formatting is fine.`;
 
-const tools: FunctionDeclarationsTool[] = [
+const getTools = (countyName: string): FunctionDeclarationsTool[] => [
   {
     functionDeclarations: [
       {
         name: "delegate_to_budget_analyst",
-        description: "Send a question to the BudgetAnalyst sub-agent for Nairobi County budget Q&A, comparisons, ward summaries, or PDF analysis.",
+        description: `Send a question to the BudgetAnalyst sub-agent for ${countyName} budget Q&A, comparisons, ward summaries, or PDF analysis.`,
         parameters: {
           type: SchemaType.OBJECT,
           properties: {
@@ -50,7 +52,7 @@ const tools: FunctionDeclarationsTool[] = [
       },
       {
         name: "delegate_to_gazette_monitor",
-        description: "Send a question to the GazetteMonitor sub-agent about Kenya Gazette notices or budget amendments.",
+        description: `Send a question to the GazetteMonitor sub-agent about Kenya Gazette notices or budget amendments affecting ${countyName}.`,
         parameters: {
           type: SchemaType.OBJECT,
           properties: {
@@ -74,20 +76,21 @@ const tools: FunctionDeclarationsTool[] = [
   },
 ];
 
-export interface AgentResponse {
-  text: string;
-  toolsUsed: { name: string; summary: string }[];
-  agentsCalled: string[];
-}
-
-export async function runOrchestrator(sessionId: string, userMessage: string): Promise<AgentResponse> {
+export async function runOrchestrator(sessionId: string, userMessage: string, countyId?: string): Promise<AgentResponse> {
   const session = getSession(sessionId);
+  
+  if (countyId) {
+    session.countyId = countyId;
+  }
+  
+  const currentCountyId = session.countyId || "47";
+  const countyName = getCountyName(currentCountyId);
 
   const genAI = new GoogleGenerativeAI(getApiKey());
   const model = genAI.getGenerativeModel({
     model: MODEL,
-    tools,
-    systemInstruction: SYSTEM_INSTRUCTION,
+    tools: getTools(countyName),
+    systemInstruction: getSystemInstruction(countyName),
   });
 
   const chat = model.startChat({ history: session.history });

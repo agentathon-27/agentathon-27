@@ -108,7 +108,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
         )}
       </div>
       <p className="mt-2 text-center text-[10px] text-muted">
-        Budget Watchdog analyzes Nairobi City County FY 2025/2026 budget data using Gemini 1.5 Pro. Built for GDG Nairobi Agentathon 2026.
+        Providing plain-language insights on official county budget data and legislative notices.
       </p>
     </div>
   );

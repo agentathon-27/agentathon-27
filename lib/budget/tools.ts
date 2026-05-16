@@ -1,5 +1,5 @@
 // Budget analysis tool functions — called by Gemini via function calling
-import { departments, wardAllocations, glossary, COUNTY_INFO, formatKES } from "./data";
+import { getCountyData, glossary, formatKES } from "./data";
 
 export interface ToolResult {
   success: boolean;
@@ -8,7 +8,8 @@ export interface ToolResult {
 }
 
 /** Search and filter budget data by keyword, department, or ward */
-export function searchBudgetData(args: { query: string; department?: string; ward?: string }): ToolResult {
+export function searchBudgetData(countyId: string, args: { query: string; department?: string; ward?: string }): ToolResult {
+  const { info: COUNTY_INFO, departments, wardAllocations } = getCountyData(countyId);
   const q = args.query.toLowerCase();
   const results: { department: string; program: string; allocation: string; description: string }[] = [];
 
@@ -18,7 +19,6 @@ export function searchBudgetData(args: { query: string; department?: string; war
     : departments;
 
   for (const dept of filteredDepts) {
-    // Check if department name matches query
     if (dept.name.toLowerCase().includes(q) || dept.id.toLowerCase().includes(q)) {
       results.push({
         department: dept.name,
@@ -27,7 +27,6 @@ export function searchBudgetData(args: { query: string; department?: string; war
         description: `Recurrent: ${formatKES(dept.recurrent)}, Development: ${formatKES(dept.development)}, Previous Year: ${formatKES(dept.previousYear)}`,
       });
     }
-    // Check programs
     for (const prog of dept.programs) {
       if (prog.name.toLowerCase().includes(q) || prog.description.toLowerCase().includes(q)) {
         results.push({
@@ -40,7 +39,6 @@ export function searchBudgetData(args: { query: string; department?: string; war
     }
   }
 
-  // Also check ward data if query matches a ward
   if (args.ward) {
     const wardData = wardAllocations.find(w => w.ward.toLowerCase().includes(args.ward!.toLowerCase()));
     if (wardData) {
@@ -57,13 +55,14 @@ export function searchBudgetData(args: { query: string; department?: string; war
     success: results.length > 0,
     data: { results, totalResults: results.length, countyInfo: COUNTY_INFO },
     summary: results.length > 0
-      ? `Found ${results.length} budget items matching "${args.query}"`
-      : `No budget items found for "${args.query}". Try broader terms like "health", "roads", "education".`,
+      ? `Found ${results.length} budget items matching "${args.query}" in ${COUNTY_INFO.name}`
+      : `No budget items found for "${args.query}" in ${COUNTY_INFO.name}. Try broader terms like "health", "roads", "education".`,
   };
 }
 
 /** Compare allocations between two departments */
-export function compareAllocations(args: { department_a: string; department_b: string }): ToolResult {
+export function compareAllocations(countyId: string, args: { department_a: string; department_b: string }): ToolResult {
+  const { info: COUNTY_INFO, departments } = getCountyData(countyId);
   const deptA = departments.find(d => d.name.toLowerCase().includes(args.department_a.toLowerCase()) || d.id.toLowerCase().includes(args.department_a.toLowerCase()));
   const deptB = departments.find(d => d.name.toLowerCase().includes(args.department_b.toLowerCase()) || d.id.toLowerCase().includes(args.department_b.toLowerCase()));
 
@@ -72,7 +71,7 @@ export function compareAllocations(args: { department_a: string; department_b: s
     return {
       success: false,
       data: { availableDepartments: available },
-      summary: `Could not find one or both departments. Available: ${available}`,
+      summary: `Could not find one or both departments in ${COUNTY_INFO.name}. Available: ${available}`,
     };
   }
 
@@ -110,12 +109,13 @@ export function compareAllocations(args: { department_a: string; department_b: s
         higherDepartment: diff > 0 ? deptA.name : deptB.name,
       },
     },
-    summary: `${deptA.name} (${formatKES(deptA.totalAllocation)}) vs ${deptB.name} (${formatKES(deptB.totalAllocation)}). ${diff > 0 ? deptA.name : deptB.name} receives ${formatKES(Math.abs(diff))} more.`,
+    summary: `${deptA.name} (${formatKES(deptA.totalAllocation)}) vs ${deptB.name} (${formatKES(deptB.totalAllocation)}) in ${COUNTY_INFO.name}. ${diff > 0 ? deptA.name : deptB.name} receives ${formatKES(Math.abs(diff))} more.`,
   };
 }
 
 /** Get ward-level budget summary */
-export function getWardSummary(args: { ward_name: string }): ToolResult {
+export function getWardSummary(countyId: string, args: { ward_name: string }): ToolResult {
+  const { info: COUNTY_INFO, wardAllocations } = getCountyData(countyId);
   const ward = wardAllocations.find(w => w.ward.toLowerCase().includes(args.ward_name.toLowerCase()));
 
   if (!ward) {
@@ -123,9 +123,11 @@ export function getWardSummary(args: { ward_name: string }): ToolResult {
     return {
       success: false,
       data: { availableWards: available },
-      summary: `Ward "${args.ward_name}" not found. Available wards with data: ${available}`,
+      summary: `Ward "${args.ward_name}" not found in ${COUNTY_INFO.name}. Available wards with data: ${available}`,
     };
   }
+
+  const avgAllocation = COUNTY_INFO.totalBudget / (COUNTY_INFO.totalWards || 1);
 
   return {
     success: true,
@@ -139,9 +141,9 @@ export function getWardSummary(args: { ward_name: string }): ToolResult {
         percentage: `${((amount / ward.totalAllocation) * 100).toFixed(1)}%`,
       })),
       keyProjects: ward.keyProjects,
-      comparisonToAverage: formatKES(ward.totalAllocation - 290_000_000),
+      comparisonToAverage: formatKES(ward.totalAllocation - avgAllocation),
     },
-    summary: `${ward.ward} ward (${ward.subCounty} sub-county) has ${formatKES(ward.totalAllocation)} allocated across ${Object.keys(ward.breakdown).length} sectors with ${ward.keyProjects.length} key projects.`,
+    summary: `${ward.ward} ward (${ward.subCounty} sub-county) in ${COUNTY_INFO.name} has ${formatKES(ward.totalAllocation)} allocated across ${Object.keys(ward.breakdown).length} sectors.`,
   };
 }
 
@@ -168,48 +170,46 @@ export function explainBudgetTerm(args: { term: string }): ToolResult {
 }
 
 /** Generate a concise SMS-friendly budget digest */
-export function generateSmsDigest(args: { topic?: string; language?: string }): ToolResult {
+export function generateSmsDigest(countyId: string, args: { topic?: string; language?: string }): ToolResult {
+  const { info: COUNTY_INFO, departments } = getCountyData(countyId);
   const topic = args.topic?.toLowerCase() || "overview";
   const lang = args.language?.toLowerCase() === "sw" ? "sw" : "en";
   let smsMessage: string;
 
+  const shortName = COUNTY_INFO.name.split(" ")[0];
+
   if (lang === "sw") {
     if (topic.includes("health") || topic.includes("afya")) {
       const dept = departments.find(d => d.id === "health")!;
-      smsMessage = `🏥 Bajeti ya Afya NRB: ${formatKES(dept.totalAllocation)} (${((dept.totalAllocation / COUNTY_INFO.totalBudget) * 100).toFixed(0)}% ya jumla). Imeongezeka kwa ${(((dept.totalAllocation - dept.previousYear) / dept.previousYear) * 100).toFixed(0)}%. #BudgetWatch`;
+      smsMessage = `🏥 Bajeti ya Afya ${shortName}: ${formatKES(dept.totalAllocation)} (${((dept.totalAllocation / COUNTY_INFO.totalBudget) * 100).toFixed(0)}% ya jumla). #BudgetWatch`;
     } else if (topic.includes("road") || topic.includes("barabara") || topic.includes("transport")) {
       const dept = departments.find(d => d.id === "transport")!;
-      smsMessage = `🛣️ Bajeti ya Barabara NRB: ${formatKES(dept.totalAllocation)}. Ujenzi ${formatKES(2_800_000_000)}, taa za barabara ${formatKES(600_000_000)}. Imeongezeka kwa ${(((dept.totalAllocation - dept.previousYear) / dept.previousYear) * 100).toFixed(0)}%. #BudgetWatch`;
-    } else if (topic.includes("education") || topic.includes("elimu") || topic.includes("shule")) {
-      const dept = departments.find(d => d.id === "education")!;
-      smsMessage = `📚 Elimu NRB: ${formatKES(dept.totalAllocation)}. ECDE ${formatKES(1_800_000_000)}, michezo ${formatKES(900_000_000)}. Imeongezeka kwa ${(((dept.totalAllocation - dept.previousYear) / dept.previousYear) * 100).toFixed(0)}% YoY. #BudgetWatch`;
+      smsMessage = `🛣️ Bajeti ya Barabara ${shortName}: ${formatKES(dept.totalAllocation)}. Imeongezeka kwa ${(((dept.totalAllocation - dept.previousYear) / (dept.previousYear || 1)) * 100).toFixed(0)}%. #BudgetWatch`;
     } else {
-      smsMessage = `🏛️ Nairobi ${COUNTY_INFO.fiscalYear}: ${formatKES(COUNTY_INFO.totalBudget)} jumla. Afya ${formatKES(12_100_000_000)} (32%), Barabara ${formatKES(5_200_000_000)} (14%), Elimu ${formatKES(3_500_000_000)} (9%). #BudgetWatch`;
+      smsMessage = `🏛️ ${shortName} ${COUNTY_INFO.fiscalYear}: ${formatKES(COUNTY_INFO.totalBudget)} jumla. Afya ${formatKES(departments.find(d => d.id === "health")?.totalAllocation || 0)}. #BudgetWatch`;
     }
   } else {
     if (topic.includes("health")) {
       const dept = departments.find(d => d.id === "health")!;
-      smsMessage = `🏥 NRB Health Budget: ${formatKES(dept.totalAllocation)} (${((dept.totalAllocation / COUNTY_INFO.totalBudget) * 100).toFixed(0)}% of total). Up ${(((dept.totalAllocation - dept.previousYear) / dept.previousYear) * 100).toFixed(0)}% from last yr. Key: Mbagathi upgrade ${formatKES(1_500_000_000)}. #BudgetWatch`;
+      smsMessage = `🏥 ${shortName} Health Budget: ${formatKES(dept.totalAllocation)} (${((dept.totalAllocation / COUNTY_INFO.totalBudget) * 100).toFixed(0)}% of total). #BudgetWatch`;
     } else if (topic.includes("road") || topic.includes("transport")) {
       const dept = departments.find(d => d.id === "transport")!;
-      smsMessage = `🛣️ NRB Roads Budget: ${formatKES(dept.totalAllocation)}. Road construction ${formatKES(2_800_000_000)}, street lights ${formatKES(600_000_000)}, storm water ${formatKES(600_000_000)}. Up ${(((dept.totalAllocation - dept.previousYear) / dept.previousYear) * 100).toFixed(0)}% YoY. #BudgetWatch`;
-    } else if (topic.includes("education") || topic.includes("school")) {
-      const dept = departments.find(d => d.id === "education")!;
-      smsMessage = `📚 NRB Education: ${formatKES(dept.totalAllocation)}. ECDE ${formatKES(1_800_000_000)}, youth ${formatKES(800_000_000)}, sports ${formatKES(900_000_000)}. Up ${(((dept.totalAllocation - dept.previousYear) / dept.previousYear) * 100).toFixed(0)}% YoY. #BudgetWatch`;
+      smsMessage = `🛣️ ${shortName} Roads Budget: ${formatKES(dept.totalAllocation)}. Up ${(((dept.totalAllocation - dept.previousYear) / (dept.previousYear || 1)) * 100).toFixed(0)}% YoY. #BudgetWatch`;
     } else {
-      smsMessage = `🏛️ Nairobi ${COUNTY_INFO.fiscalYear}: ${formatKES(COUNTY_INFO.totalBudget)} total. Health ${formatKES(12_100_000_000)} (32%), Roads ${formatKES(5_200_000_000)} (14%), Edu ${formatKES(3_500_000_000)} (9%). Dev ${formatKES(COUNTY_INFO.totalDevelopment)} (35%). #BudgetWatch`;
+      smsMessage = `🏛️ ${shortName} ${COUNTY_INFO.fiscalYear}: ${formatKES(COUNTY_INFO.totalBudget)} total. Health ${formatKES(departments.find(d => d.id === "health")?.totalAllocation || 0)}. #BudgetWatch`;
     }
   }
 
   return {
     success: true,
     data: { smsMessage, characterCount: smsMessage.length, topic, language: lang },
-    summary: `Generated ${smsMessage.length}-char SMS digest in ${lang === "sw" ? "Swahili" : "English"} on "${topic}"`,
+    summary: `Generated SMS digest for ${COUNTY_INFO.name} in ${lang === "sw" ? "Swahili" : "English"}`,
   };
 }
 
 /** Get overall budget summary with key statistics */
-export function getBudgetOverview(): ToolResult {
+export function getBudgetOverview(countyId: string): ToolResult {
+  const { info: COUNTY_INFO, departments } = getCountyData(countyId);
   const sortedDepts = [...departments].sort((a, b) => b.totalAllocation - a.totalAllocation);
   const devPercent = ((COUNTY_INFO.totalDevelopment / COUNTY_INFO.totalBudget) * 100).toFixed(1);
 
@@ -231,25 +231,25 @@ export function getBudgetOverview(): ToolResult {
       totalDepartments: COUNTY_INFO.totalDepartments,
       totalWards: COUNTY_INFO.totalWards,
     },
-    summary: `Nairobi County ${COUNTY_INFO.fiscalYear} budget: ${formatKES(COUNTY_INFO.totalBudget)} across ${COUNTY_INFO.totalDepartments} departments and ${COUNTY_INFO.totalWards} wards.`,
+    summary: `${COUNTY_INFO.name} ${COUNTY_INFO.fiscalYear} budget: ${formatKES(COUNTY_INFO.totalBudget)} across ${COUNTY_INFO.totalDepartments} departments and ${COUNTY_INFO.totalWards} wards.`,
   };
 }
 
 // Execute a tool by name
-export function executeTool(name: string, args: Record<string, unknown>): ToolResult {
+export function executeTool(countyId: string, name: string, args: Record<string, unknown>): ToolResult {
   switch (name) {
     case "search_budget_data":
-      return searchBudgetData(args as { query: string; department?: string; ward?: string });
+      return searchBudgetData(countyId, args as { query: string; department?: string; ward?: string });
     case "compare_allocations":
-      return compareAllocations(args as { department_a: string; department_b: string });
+      return compareAllocations(countyId, args as { department_a: string; department_b: string });
     case "get_ward_summary":
-      return getWardSummary(args as { ward_name: string });
+      return getWardSummary(countyId, args as { ward_name: string });
     case "explain_budget_term":
       return explainBudgetTerm(args as { term: string });
     case "generate_sms_digest":
-      return generateSmsDigest(args as { topic?: string });
+      return generateSmsDigest(countyId, args as { topic?: string });
     case "get_budget_overview":
-      return getBudgetOverview();
+      return getBudgetOverview(countyId);
     default:
       return { success: false, data: null, summary: `Unknown tool: ${name}` };
   }

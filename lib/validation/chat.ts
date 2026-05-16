@@ -5,6 +5,7 @@ import { z } from "zod";
 export const queryRequestSchema = z.object({
   message: z.string().trim().min(1, "message is required").max(8000, "message too long"),
   sessionId: z.string().trim().min(1, "sessionId is required"),
+  countyId: z.string().trim().optional(),
 });
 export type QueryRequest = z.infer<typeof queryRequestSchema>;
 

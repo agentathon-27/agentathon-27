@@ -12,10 +12,13 @@ import { sendSms } from "@/lib/sms/africastalking";
 import { recordTool } from "./sessions";
 import { getApiKey, MODEL } from "./config";
 
-const SYSTEM_INSTRUCTION = `You are the DigestGenerator, a specialist sub-agent of the County Budget Watchdog.
+import { getCountyName } from "@/lib/budget/counties";
+import { getSession } from "./sessions";
+
+const getSystemInstruction = (countyName: string) => `You are the DigestGenerator, a specialist sub-agent of the County Budget Watchdog for Kenyan Counties.
 
 Scope:
-- Produce SMS-sized (≤160 chars) summaries of Nairobi budget topics for ward residents.
+- Produce SMS-sized (≤160 chars) summaries of Kenyan County budget topics for ward residents.
 - Support both English and Swahili (Kiswahili) digests.
 - Optionally deliver the SMS via Africa's Talking when a phone number is provided.
 
@@ -58,9 +61,9 @@ const tools: FunctionDeclarationsTool[] = [
   },
 ];
 
-async function runTool(name: string, args: Record<string, unknown>): Promise<{ summary: string; data: unknown }> {
+async function runTool(countyId: string, name: string, args: Record<string, unknown>): Promise<{ summary: string; data: unknown }> {
   if (name === "generate_digest") {
-    const out = generateSmsDigest({
+    const out = generateSmsDigest(countyId, {
       topic: String(args.topic ?? "overview"),
       language: String(args.language ?? "en"),
     });
@@ -84,8 +87,16 @@ async function runTool(name: string, args: Record<string, unknown>): Promise<{ s
 }
 
 export async function askDigestGenerator(sessionId: string, query: string): Promise<string> {
+  const session = getSession(sessionId);
+  const countyId = session.countyId || "47";
+  const countyName = getCountyName(countyId);
+
   const genAI = new GoogleGenerativeAI(getApiKey());
-  const model = genAI.getGenerativeModel({ model: MODEL, tools, systemInstruction: SYSTEM_INSTRUCTION });
+  const model = genAI.getGenerativeModel({
+    model: MODEL,
+    tools,
+    systemInstruction: getSystemInstruction(countyName),
+  });
 
   const chat = model.startChat({ history: [] });
   let result = await chat.sendMessage(query);
@@ -96,7 +107,7 @@ export async function askDigestGenerator(sessionId: string, query: string): Prom
     const calls = result.response.functionCalls()!;
     const responses: Part[] = await Promise.all(
       calls.map(async (call) => {
-        const out = await runTool(call.name, (call.args || {}) as Record<string, unknown>);
+        const out = await runTool(countyId, call.name, (call.args || {}) as Record<string, unknown>);
         recordTool(sessionId, call.name, out.summary);
         return { functionResponse: { name: call.name, response: out.data as object } };
       }),

@@ -12,10 +12,13 @@ import { recordTool } from "./sessions";
 import { getApiKey, MODEL } from "./config";
 import { formatKES } from "@/lib/budget/data";
 
-const SYSTEM_INSTRUCTION = `You are the GazetteMonitor, a specialist sub-agent of the County Budget Watchdog.
+import { getCountyName } from "@/lib/budget/counties";
+import { getSession } from "./sessions";
+
+const getSystemInstruction = (countyName: string) => `You are the GazetteMonitor, a specialist sub-agent of the County Budget Watchdog for ${countyName}.
 
 Scope:
-- Search Kenya Gazette notices for amendments to the Nairobi County budget.
+- Search Kenya Gazette notices for amendments to the ${countyName} budget.
 - Explain what each amendment changes and who is affected.
 - Surface supplementary appropriations, reallocations, and withdrawals.
 
@@ -31,7 +34,7 @@ const tools: FunctionDeclarationsTool[] = [
     functionDeclarations: [
       {
         name: "search_gazette",
-        description: "Search Kenya Gazette notices affecting the Nairobi County budget. Returns matching notices with impact summaries.",
+        description: "Search Kenya Gazette notices affecting the county budget. Returns matching notices with impact summaries.",
         parameters: {
           type: SchemaType.OBJECT,
           properties: {
@@ -55,10 +58,10 @@ const tools: FunctionDeclarationsTool[] = [
   },
 ];
 
-function runTool(name: string, args: Record<string, unknown>): { summary: string; data: unknown } {
+function runTool(countyId: string, name: string, args: Record<string, unknown>): { summary: string; data: unknown } {
   if (name === "search_gazette") {
     const q = String(args.query ?? "");
-    const hits = searchGazette(q);
+    const hits = searchGazette(countyId, q);
     return {
       summary: `Found ${hits.length} gazette notice(s) for "${q || "(all)"}"`,
       data: { count: hits.length, notices: hits },
@@ -79,8 +82,16 @@ function runTool(name: string, args: Record<string, unknown>): { summary: string
 }
 
 export async function askGazetteMonitor(sessionId: string, query: string): Promise<string> {
+  const session = getSession(sessionId);
+  const countyId = session.countyId || "47";
+  const countyName = getCountyName(countyId);
+
   const genAI = new GoogleGenerativeAI(getApiKey());
-  const model = genAI.getGenerativeModel({ model: MODEL, tools, systemInstruction: SYSTEM_INSTRUCTION });
+  const model = genAI.getGenerativeModel({
+    model: MODEL,
+    tools,
+    systemInstruction: getSystemInstruction(countyName),
+  });
 
   const chat = model.startChat({ history: [] });
   let result = await chat.sendMessage(query);
@@ -90,7 +101,7 @@ export async function askGazetteMonitor(sessionId: string, query: string): Promi
   while (result.response.functionCalls()?.length && iterations < MAX) {
     const calls = result.response.functionCalls()!;
     const responses: Part[] = calls.map((call) => {
-      const out = runTool(call.name, (call.args || {}) as Record<string, unknown>);
+      const out = runTool(countyId, call.name, (call.args || {}) as Record<string, unknown>);
       recordTool(sessionId, call.name, out.summary);
       return { functionResponse: { name: call.name, response: out.data as object } };
     });

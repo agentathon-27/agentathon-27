@@ -13,6 +13,7 @@ export interface PdfRef {
 export interface SessionState {
   history: Content[];
   pdf?: PdfRef;
+  countyId: string;
   toolsUsed: { name: string; summary: string }[];
 }
 
@@ -21,10 +22,15 @@ const sessions = new Map<string, SessionState>();
 export function getSession(sessionId: string): SessionState {
   let s = sessions.get(sessionId);
   if (!s) {
-    s = { history: [], toolsUsed: [] };
+    s = { history: [], toolsUsed: [], countyId: "47" };
     sessions.set(sessionId, s);
   }
   return s;
+}
+
+export function setCounty(sessionId: string, countyId: string): void {
+  const s = getSession(sessionId);
+  s.countyId = countyId;
 }
 
 export function clearSession(sessionId: string): void {
