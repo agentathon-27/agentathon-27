@@ -41,14 +41,7 @@ export default function Home() {
     { label: "What is Equitable Share?", query: "Explain what equitable share means", hint: "📖 Terms" },
   ], [countyData]);
 
-  const STATS = useMemo(() => [
-    { label: "Total Budget", value: formatKES(countyData.info.totalBudget), icon: "💰", color: "var(--text-primary)" },
-    { label: "Departments", value: countyData.info.totalDepartments.toString(), icon: "🏢", color: "var(--text-secondary)" },
-    { label: "Wards Covered", value: countyData.info.totalWards.toString(), icon: "📍", color: "var(--text-secondary)" },
-    { label: "Dev. Spending", value: `${((countyData.info.totalDevelopment / countyData.info.totalBudget) * 100).toFixed(0)}%`, icon: "🏗️", color: "var(--text-muted)" },
-  ], [countyData]);
-
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<ChatInputHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -242,37 +235,14 @@ export default function Home() {
             {/* Welcome state */}
             {messages.length === 0 && (
               <div className="max-w-3xl mx-auto animate-fade-in-up">
-                {/* Stats */}
-                <div className="grid grid-cols-4 gap-3 mb-6">
-                  {STATS.map((stat) => (
-                    <div key={stat.label} className="stat-card">
-                      <div className="text-lg mb-1">{stat.icon}</div>
-                      <div className="text-xl font-bold" style={{ color: stat.color }}>
-                        {stat.value}
-                      </div>
-                      <div className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-                        {stat.label}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
                 {/* Welcome message */}
                 <div className="glass-card p-6 mb-6">
                   <h2 className="text-xl font-bold mb-2" style={{ color: "var(--text-primary)" }}>
                     🐕 Habari! I&apos;m the Budget Watchdog
                   </h2>
                   <p className="text-sm mb-4" style={{ color: "var(--text-secondary)", lineHeight: 1.7 }}>
-                    I help you understand how <strong style={{ color: "var(--text-primary)" }}>{formatKES(countyData.info.totalBudget)}</strong> of{" "}
-                    {countyData.info.name}&apos;s budget is allocated across <strong style={{ color: "var(--text-primary)" }}>{countyData.info.totalDepartments} departments</strong> and{" "}
-                    <strong style={{ color: "var(--text-primary)" }}>{countyData.info.totalWards} wards</strong>. Ask me anything about
-                    the budget — I&apos;ll search the real data and give you plain-language answers.
+                    I help you understand how Kenya&apos;s <strong style={{ color: "var(--text-primary)" }}>47 counties</strong> allocate their budgets across departments, wards, and development priorities. Pick a county from the selector, ask a question, or upload a county budget PDF — I&apos;ll search the data and give you plain-language answers.
                   </p>
-                  {countyId !== "47" && (
-                    <p className="text-xs mb-4 italic" style={{ color: "var(--text-muted)" }}>
-                      Note: Demo structured data is currently prioritized for Nairobi. For other counties, I will use placeholder structures or analyze your uploaded PDF.
-                    </p>
-                  )}
                   <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                     💡 I use AI tools to search budget data, compare allocations, and generate SMS digests. Try the quick actions below!
                   </p>
