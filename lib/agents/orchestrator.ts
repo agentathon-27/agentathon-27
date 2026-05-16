@@ -76,6 +76,12 @@ const getTools = (countyName: string): FunctionDeclarationsTool[] => [
   },
 ];
 
+export interface AgentResponse {
+  text: string;
+  toolsUsed: { name: string; summary: string }[];
+  agentsCalled: string[];
+}
+
 export async function runOrchestrator(sessionId: string, userMessage: string, countyId?: string): Promise<AgentResponse> {
   const session = getSession(sessionId);
   

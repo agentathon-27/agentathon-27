@@ -13,8 +13,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: flattenZodError(parsed.error) }, { status: 400 });
     }
 
-    const { message, sessionId } = parsed.data;
-    const result = await runOrchestrator(sessionId, message);
+    const { message, sessionId, countyId } = parsed.data;
+    const result = await runOrchestrator(sessionId, message, countyId);
 
     return NextResponse.json({
       response: result.text,

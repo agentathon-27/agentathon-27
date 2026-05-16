@@ -1,9 +1,9 @@
-"use client";
-
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Message, type ToolCall } from "@/components/ui/Message";
 import { ChatInput, type ChatInputHandle } from "@/components/ui/ChatInput";
 import { SuggestionChip } from "@/components/ui/SuggestionChip";
+import { counties } from "@/lib/budget/counties";
+import { getCountyData, formatKES } from "@/lib/budget/data";
 
 interface ChatMessage {
   id: string;
@@ -13,24 +13,6 @@ interface ChatMessage {
   agentsCalled?: string[];
   timestamp: Date;
 }
-
-const QUICK_ACTIONS = [
-  { label: "Budget Overview", query: "Give me an overview of the Nairobi County budget", hint: "🏛️ Overview" },
-  { label: "Health Spending", query: "How much is allocated to health services?", hint: "🏥 Health" },
-  { label: "Compare: Health vs Roads", query: "Compare health and transport infrastructure spending", hint: "📊 Compare" },
-  { label: "Kibra Ward", query: "Show me the budget breakdown for Kibra ward", hint: "📍 Ward" },
-  { label: "Recent Gazette Amendments", query: "What are the latest Kenya Gazette amendments to the Nairobi budget?", hint: "📰 Gazette" },
-  { label: "Reallocations", query: "Find any gazette reallocations affecting Transport & Infrastructure", hint: "🔁 Track" },
-  { label: "SMS Digest", query: "Generate an SMS digest about the overall budget", hint: "📱 SMS" },
-  { label: "What is Equitable Share?", query: "Explain what equitable share means", hint: "📖 Terms" },
-];
-
-const STATS = [
-  { label: "Total Budget", value: "KES 37.4B", icon: "💰", color: "var(--text-primary)" },
-  { label: "Departments", value: "13", icon: "🏢", color: "var(--text-secondary)" },
-  { label: "Wards Covered", value: "85", icon: "📍", color: "var(--text-secondary)" },
-  { label: "Dev. Spending", value: "35%", icon: "🏗️", color: "var(--text-muted)" },
-];
 
 export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -42,6 +24,27 @@ export default function Home() {
   const [smsStatus, setSmsStatus] = useState<string | null>(null);
   const [pdfName, setPdfName] = useState<string | null>(null);
   const [pdfUploading, setPdfUploading] = useState(false);
+  const [countyId, setCountyId] = useState("47"); // Default to Nairobi
+
+  const countyData = useMemo(() => getCountyData(countyId), [countyId]);
+
+  const QUICK_ACTIONS = useMemo(() => [
+    { label: "Budget Overview", query: `Give me an overview of the ${countyData.info.name} budget`, hint: "🏛️ Overview" },
+    { label: "Health Spending", query: "How much is allocated to health services?", hint: "🏥 Health" },
+    { label: "Compare: Health vs Roads", query: "Compare health and transport infrastructure spending", hint: "📊 Compare" },
+    { label: "Ward Summary", query: `Show me the budget breakdown for a ward in ${countyData.info.name}`, hint: "📍 Ward" },
+    { label: "Recent Gazette Amendments", query: `What are the latest Kenya Gazette amendments to the ${countyData.info.name} budget?`, hint: "📰 Gazette" },
+    { label: "Reallocations", query: "Find any gazette reallocations affecting Transport & Infrastructure", hint: "🔁 Track" },
+    { label: "SMS Digest", query: "Generate an SMS digest about the overall budget", hint: "📱 SMS" },
+    { label: "What is Equitable Share?", query: "Explain what equitable share means", hint: "📖 Terms" },
+  ], [countyData]);
+
+  const STATS = useMemo(() => [
+    { label: "Total Budget", value: formatKES(countyData.info.totalBudget), icon: "💰", color: "var(--text-primary)" },
+    { label: "Departments", value: countyData.info.totalDepartments.toString(), icon: "🏢", color: "var(--text-secondary)" },
+    { label: "Wards Covered", value: countyData.info.totalWards.toString(), icon: "📍", color: "var(--text-secondary)" },
+    { label: "Dev. Spending", value: `${((countyData.info.totalDevelopment / countyData.info.totalBudget) * 100).toFixed(0)}%`, icon: "🏗️", color: "var(--text-muted)" },
+  ], [countyData]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<ChatInputHandle>(null);
@@ -72,7 +75,7 @@ export default function Home() {
       const res = await fetch("/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text.trim(), sessionId }),
+        body: JSON.stringify({ message: text.trim(), sessionId, countyId }),
       });
 
       const data = await res.json();
@@ -109,7 +112,7 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, sessionId]);
+  }, [isLoading, sessionId, countyId]);
 
 
   const uploadPdf = useCallback(async (file: File) => {
@@ -178,11 +181,25 @@ export default function Home() {
               County Budget Watchdog
             </h1>
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              Multi-agent system • Nairobi City County FY 2025/2026 • Gemini 1.5 Pro
+              Multi-agent system • {countyData.info.name} {countyData.info.fiscalYear} • Gemini 1.5 Pro
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <select 
+            value={countyId} 
+            onChange={(e) => {
+              setCountyId(e.target.value);
+              setMessages([]); // Clear chat on county change
+            }}
+            className="quick-action text-xs bg-transparent cursor-pointer outline-none border-none pr-2"
+          >
+            {counties.map(c => (
+              <option key={c.id} value={c.id} style={{ background: "var(--bg-secondary)" }}>
+                📍 {c.name}
+              </option>
+            ))}
+          </select>
           <input
             ref={fileInputRef}
             type="file"
@@ -244,11 +261,16 @@ export default function Home() {
                     🐕 Habari! I&apos;m the Budget Watchdog
                   </h2>
                   <p className="text-sm mb-4" style={{ color: "var(--text-secondary)", lineHeight: 1.7 }}>
-                    I help you understand how <strong style={{ color: "var(--text-primary)" }}>KES 37.4 billion</strong> of
-                    Nairobi County&apos;s budget is allocated across <strong style={{ color: "var(--text-primary)" }}>13 departments</strong> and{" "}
-                    <strong style={{ color: "var(--text-primary)" }}>85 wards</strong>. Ask me anything about
+                    I help you understand how <strong style={{ color: "var(--text-primary)" }}>{formatKES(countyData.info.totalBudget)}</strong> of{" "}
+                    {countyData.info.name}&apos;s budget is allocated across <strong style={{ color: "var(--text-primary)" }}>{countyData.info.totalDepartments} departments</strong> and{" "}
+                    <strong style={{ color: "var(--text-primary)" }}>{countyData.info.totalWards} wards</strong>. Ask me anything about
                     the budget — I&apos;ll search the real data and give you plain-language answers.
                   </p>
+                  {countyId !== "47" && (
+                    <p className="text-xs mb-4 italic" style={{ color: "var(--text-muted)" }}>
+                      Note: Demo structured data is currently prioritized for Nairobi. For other counties, I will use placeholder structures or analyze your uploaded PDF.
+                    </p>
+                  )}
                   <p className="text-xs" style={{ color: "var(--text-muted)" }}>
                     💡 I use AI tools to search budget data, compare allocations, and generate SMS digests. Try the quick actions below!
                   </p>

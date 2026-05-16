@@ -19,64 +19,6 @@ export interface GazetteNotice {
   source: string;        // canonical URL
 }
 
-export const gazetteNotices: GazetteNotice[] = [
-  {
-    id: "GZ-2026-014",
-    date: "2026-03-12",
-    title: "Nairobi City County Supplementary Appropriation Act, 2026 (No. 1)",
-    noticeType: "Supplementary Appropriation",
-    county: "Nairobi City County",
-    body: "An Act of the County Assembly of Nairobi City to authorise the issue of an additional KES 1,800,000,000 from the County Revenue Fund to supplement the appropriation for the year ending 30th June, 2026, and to appropriate that sum for certain services and purposes.",
-    impact: {
-      department: "Health Services",
-      delta: 1_800_000_000,
-      summary: "Top-up to Health Services for emergency response and Mbagathi maternity expansion; raises Health from KES 12.1B to KES 13.9B.",
-    },
-    source: "https://kenyalaw.org/kl/index.php?id=14210",
-  },
-  {
-    id: "GZ-2026-021",
-    date: "2026-04-03",
-    title: "Reallocation Notice — Transport & Infrastructure",
-    noticeType: "Allocation Adjustment",
-    county: "Nairobi City County",
-    body: "Notice is given that, pursuant to section 154 of the Public Finance Management Act, KES 420,000,000 has been re-allocated from Storm Water Management to Road Construction & Rehabilitation within the Transport & Infrastructure vote.",
-    impact: {
-      department: "Transport & Infrastructure",
-      delta: 0,
-      summary: "Intra-department shift: drainage budget cut by KES 420M, roads budget grown by the same. Net department total unchanged.",
-    },
-    source: "https://kenyalaw.org/kl/index.php?id=14288",
-  },
-  {
-    id: "GZ-2026-029",
-    date: "2026-04-21",
-    title: "Public Finance Management (County Governments) (Amendment) Regulations, 2026",
-    noticeType: "Public Finance",
-    county: "National",
-    body: "The Cabinet Secretary for the National Treasury makes amendments to the PFM (County Governments) Regulations clarifying ward-level reporting requirements for development expenditure absorption.",
-    impact: {
-      delta: 0,
-      summary: "Affects how all 47 counties report ward-level project absorption. No direct allocation change; tightens accountability.",
-    },
-    source: "https://kenyalaw.org/kl/index.php?id=14310",
-  },
-  {
-    id: "GZ-2026-033",
-    date: "2026-05-02",
-    title: "Withdrawal Notice — Education, Youth & Sports",
-    noticeType: "Allocation Adjustment",
-    county: "Nairobi City County",
-    body: "KES 220,000,000 originally appropriated to Sports Development has been withdrawn following non-implementation of the Karen-Hardy sports complex contract.",
-    impact: {
-      department: "Education, Youth & Sports",
-      delta: -220_000_000,
-      summary: "Sports Development line cut by KES 220M; funds revert to County Revenue Fund pending reallocation.",
-    },
-    source: "https://kenyalaw.org/kl/index.php?id=14342",
-  },
-];
-
 import { getCountyName } from "./counties";
 
 export function searchGazette(countyId: string, query: string): GazetteNotice[] {
