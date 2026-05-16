@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
@@ -53,9 +52,6 @@ function formatAgentText(text: string): string {
     .replace(/#{2}\s*(.*?)(?:<br\/>|$)/g, "<h3>$1</h3>")
     .replace(/`([^`]+)`/g, "<code>$1</code>");
 }
-=======
-import { Chat } from "@/components/dashboard/Chat";
->>>>>>> 1a82f0f1a1831c172a5fd0ac0eaf907983b9f4ca
 
 export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -164,7 +160,6 @@ export default function Home() {
   };
 
   return (
-<<<<<<< HEAD
     <div className="flex flex-col h-screen" style={{ background: "var(--bg-primary)" }}>
       {/* Kenyan gradient line */}
       <div className="header-line" />
@@ -430,20 +425,6 @@ export default function Home() {
           </div>
         </div>
       )}
-=======
-    <div className="flex h-dvh w-full flex-col bg-white dark:bg-black">
-      <header className="flex items-center justify-between px-6 py-4">
-        <div className="flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-linear-to-br from-[#4285f4] via-[#9b72cb] to-[#d96570]" />
-          <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Budget Watchdog
-          </span>
-        </div>
-      </header>
-      <main className="flex-1 overflow-hidden">
-        <Chat greeting="Karibu" />
-      </main>
->>>>>>> 1a82f0f1a1831c172a5fd0ac0eaf907983b9f4ca
     </div>
   );
 }
