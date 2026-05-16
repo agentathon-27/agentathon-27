@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Message, type ToolCall } from "@/components/ui/Message";
 import { ChatInput, type ChatInputHandle } from "@/components/ui/ChatInput";
