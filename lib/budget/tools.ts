@@ -168,27 +168,43 @@ export function explainBudgetTerm(args: { term: string }): ToolResult {
 }
 
 /** Generate a concise SMS-friendly budget digest */
-export function generateSmsDigest(args: { topic?: string }): ToolResult {
+export function generateSmsDigest(args: { topic?: string; language?: string }): ToolResult {
   const topic = args.topic?.toLowerCase() || "overview";
+  const lang = args.language?.toLowerCase() === "sw" ? "sw" : "en";
   let smsMessage: string;
 
-  if (topic.includes("health")) {
-    const dept = departments.find(d => d.id === "health")!;
-    smsMessage = `🏥 NRB Health Budget: ${formatKES(dept.totalAllocation)} (${((dept.totalAllocation / COUNTY_INFO.totalBudget) * 100).toFixed(0)}% of total). Up ${(((dept.totalAllocation - dept.previousYear) / dept.previousYear) * 100).toFixed(0)}% from last yr. Key: Mbagathi upgrade ${formatKES(1_500_000_000)}. #BudgetWatch`;
-  } else if (topic.includes("road") || topic.includes("transport")) {
-    const dept = departments.find(d => d.id === "transport")!;
-    smsMessage = `🛣️ NRB Roads Budget: ${formatKES(dept.totalAllocation)}. Road construction ${formatKES(2_800_000_000)}, street lights ${formatKES(600_000_000)}, storm water ${formatKES(600_000_000)}. Up ${(((dept.totalAllocation - dept.previousYear) / dept.previousYear) * 100).toFixed(0)}% YoY. #BudgetWatch`;
-  } else if (topic.includes("education") || topic.includes("school")) {
-    const dept = departments.find(d => d.id === "education")!;
-    smsMessage = `📚 NRB Education: ${formatKES(dept.totalAllocation)}. ECDE ${formatKES(1_800_000_000)}, youth ${formatKES(800_000_000)}, sports ${formatKES(900_000_000)}. Up ${(((dept.totalAllocation - dept.previousYear) / dept.previousYear) * 100).toFixed(0)}% YoY. #BudgetWatch`;
+  if (lang === "sw") {
+    if (topic.includes("health") || topic.includes("afya")) {
+      const dept = departments.find(d => d.id === "health")!;
+      smsMessage = `🏥 Bajeti ya Afya NRB: ${formatKES(dept.totalAllocation)} (${((dept.totalAllocation / COUNTY_INFO.totalBudget) * 100).toFixed(0)}% ya jumla). Imeongezeka kwa ${(((dept.totalAllocation - dept.previousYear) / dept.previousYear) * 100).toFixed(0)}%. #BudgetWatch`;
+    } else if (topic.includes("road") || topic.includes("barabara") || topic.includes("transport")) {
+      const dept = departments.find(d => d.id === "transport")!;
+      smsMessage = `🛣️ Bajeti ya Barabara NRB: ${formatKES(dept.totalAllocation)}. Ujenzi ${formatKES(2_800_000_000)}, taa za barabara ${formatKES(600_000_000)}. Imeongezeka kwa ${(((dept.totalAllocation - dept.previousYear) / dept.previousYear) * 100).toFixed(0)}%. #BudgetWatch`;
+    } else if (topic.includes("education") || topic.includes("elimu") || topic.includes("shule")) {
+      const dept = departments.find(d => d.id === "education")!;
+      smsMessage = `📚 Elimu NRB: ${formatKES(dept.totalAllocation)}. ECDE ${formatKES(1_800_000_000)}, michezo ${formatKES(900_000_000)}. Imeongezeka kwa ${(((dept.totalAllocation - dept.previousYear) / dept.previousYear) * 100).toFixed(0)}% YoY. #BudgetWatch`;
+    } else {
+      smsMessage = `🏛️ Nairobi ${COUNTY_INFO.fiscalYear}: ${formatKES(COUNTY_INFO.totalBudget)} jumla. Afya ${formatKES(12_100_000_000)} (32%), Barabara ${formatKES(5_200_000_000)} (14%), Elimu ${formatKES(3_500_000_000)} (9%). #BudgetWatch`;
+    }
   } else {
-    smsMessage = `🏛️ Nairobi ${COUNTY_INFO.fiscalYear}: ${formatKES(COUNTY_INFO.totalBudget)} total. Health ${formatKES(12_100_000_000)} (32%), Roads ${formatKES(5_200_000_000)} (14%), Edu ${formatKES(3_500_000_000)} (9%). Dev ${formatKES(COUNTY_INFO.totalDevelopment)} (35%). #BudgetWatch`;
+    if (topic.includes("health")) {
+      const dept = departments.find(d => d.id === "health")!;
+      smsMessage = `🏥 NRB Health Budget: ${formatKES(dept.totalAllocation)} (${((dept.totalAllocation / COUNTY_INFO.totalBudget) * 100).toFixed(0)}% of total). Up ${(((dept.totalAllocation - dept.previousYear) / dept.previousYear) * 100).toFixed(0)}% from last yr. Key: Mbagathi upgrade ${formatKES(1_500_000_000)}. #BudgetWatch`;
+    } else if (topic.includes("road") || topic.includes("transport")) {
+      const dept = departments.find(d => d.id === "transport")!;
+      smsMessage = `🛣️ NRB Roads Budget: ${formatKES(dept.totalAllocation)}. Road construction ${formatKES(2_800_000_000)}, street lights ${formatKES(600_000_000)}, storm water ${formatKES(600_000_000)}. Up ${(((dept.totalAllocation - dept.previousYear) / dept.previousYear) * 100).toFixed(0)}% YoY. #BudgetWatch`;
+    } else if (topic.includes("education") || topic.includes("school")) {
+      const dept = departments.find(d => d.id === "education")!;
+      smsMessage = `📚 NRB Education: ${formatKES(dept.totalAllocation)}. ECDE ${formatKES(1_800_000_000)}, youth ${formatKES(800_000_000)}, sports ${formatKES(900_000_000)}. Up ${(((dept.totalAllocation - dept.previousYear) / dept.previousYear) * 100).toFixed(0)}% YoY. #BudgetWatch`;
+    } else {
+      smsMessage = `🏛️ Nairobi ${COUNTY_INFO.fiscalYear}: ${formatKES(COUNTY_INFO.totalBudget)} total. Health ${formatKES(12_100_000_000)} (32%), Roads ${formatKES(5_200_000_000)} (14%), Edu ${formatKES(3_500_000_000)} (9%). Dev ${formatKES(COUNTY_INFO.totalDevelopment)} (35%). #BudgetWatch`;
+    }
   }
 
   return {
     success: true,
-    data: { smsMessage, characterCount: smsMessage.length, topic },
-    summary: `Generated ${smsMessage.length}-char SMS digest on "${topic}"`,
+    data: { smsMessage, characterCount: smsMessage.length, topic, language: lang },
+    summary: `Generated ${smsMessage.length}-char SMS digest in ${lang === "sw" ? "Swahili" : "English"} on "${topic}"`,
   };
 }
 

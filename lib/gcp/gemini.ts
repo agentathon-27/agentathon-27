@@ -10,7 +10,7 @@ interface GeminiContent {
   parts: { text: string }[];
 }
 
-const MODEL = process.env.VERTEX_AI_MODEL ?? "gemini-1.5-pro";
+const MODEL = process.env.VERTEX_AI_MODEL ?? "gemini-flash-latest";
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models";
 
 const SYSTEM_INSTRUCTION = `You are the County Budget Watchdog, an assistant that helps Kenyan residents understand county budgets and gazette notices in plain language. Translate financial jargon to ward-level impact. Be concise. When unsure, say so.`;

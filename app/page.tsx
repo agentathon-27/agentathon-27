@@ -1,70 +1,51 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-
-interface ToolCall {
-  name: string;
-  summary: string;
-}
+import { Message, type ToolCall } from "@/components/ui/Message";
+import { ChatInput, type ChatInputHandle } from "@/components/ui/ChatInput";
+import { SuggestionChip } from "@/components/ui/SuggestionChip";
 
 interface ChatMessage {
   id: string;
   role: "user" | "agent";
   content: string;
   toolsUsed?: ToolCall[];
+  agentsCalled?: string[];
   timestamp: Date;
 }
 
-const TOOL_LABELS: Record<string, string> = {
-  search_budget_data: "🔍 Searched budget data",
-  compare_allocations: "📊 Compared allocations",
-  get_ward_summary: "📍 Retrieved ward summary",
-  explain_budget_term: "📖 Explained budget term",
-  generate_sms_digest: "📱 Generated SMS digest",
-  get_budget_overview: "🏛️ Retrieved budget overview",
-};
-
 const QUICK_ACTIONS = [
-  { label: "Budget Overview", query: "Give me an overview of the Nairobi County budget", icon: "🏛️" },
-  { label: "Health Spending", query: "How much is allocated to health services?", icon: "🏥" },
-  { label: "Compare: Health vs Roads", query: "Compare health and transport infrastructure spending", icon: "📊" },
-  { label: "Kibra Ward", query: "Show me the budget breakdown for Kibra ward", icon: "📍" },
-  { label: "Education Budget", query: "What's the education and youth budget?", icon: "📚" },
-  { label: "SMS Digest", query: "Generate an SMS digest about the overall budget", icon: "📱" },
-  { label: "What is Equitable Share?", query: "Explain what equitable share means", icon: "📖" },
-  { label: "Mathare Ward", query: "What projects are planned for Mathare ward?", icon: "🏗️" },
+  { label: "Budget Overview", query: "Give me an overview of the Nairobi County budget", hint: "🏛️ Overview" },
+  { label: "Health Spending", query: "How much is allocated to health services?", hint: "🏥 Health" },
+  { label: "Compare: Health vs Roads", query: "Compare health and transport infrastructure spending", hint: "📊 Compare" },
+  { label: "Kibra Ward", query: "Show me the budget breakdown for Kibra ward", hint: "📍 Ward" },
+  { label: "Recent Gazette Amendments", query: "What are the latest Kenya Gazette amendments to the Nairobi budget?", hint: "📰 Gazette" },
+  { label: "Reallocations", query: "Find any gazette reallocations affecting Transport & Infrastructure", hint: "🔁 Track" },
+  { label: "SMS Digest", query: "Generate an SMS digest about the overall budget", hint: "📱 SMS" },
+  { label: "What is Equitable Share?", query: "Explain what equitable share means", hint: "📖 Terms" },
 ];
 
 const STATS = [
-  { label: "Total Budget", value: "KES 37.4B", icon: "💰", color: "var(--accent-green)" },
-  { label: "Departments", value: "13", icon: "🏢", color: "var(--accent-amber)" },
-  { label: "Wards Covered", value: "85", icon: "📍", color: "var(--accent-blue)" },
-  { label: "Dev. Spending", value: "35%", icon: "🏗️", color: "var(--accent-red)" },
+  { label: "Total Budget", value: "KES 37.4B", icon: "💰", color: "var(--text-primary)" },
+  { label: "Departments", value: "13", icon: "🏢", color: "var(--text-secondary)" },
+  { label: "Wards Covered", value: "85", icon: "📍", color: "var(--text-secondary)" },
+  { label: "Dev. Spending", value: "35%", icon: "🏗️", color: "var(--text-muted)" },
 ];
-
-function formatAgentText(text: string): string {
-  return text
-    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\n- /g, "\n• ")
-    .replace(/\n\n/g, "<br/><br/>")
-    .replace(/\n/g, "<br/>")
-    .replace(/#{3}\s*(.*?)(?:<br\/>|$)/g, "<h3>$1</h3>")
-    .replace(/#{2}\s*(.*?)(?:<br\/>|$)/g, "<h3>$1</h3>")
-    .replace(/`([^`]+)`/g, "<code>$1</code>");
-}
 
 export default function Home() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId] = useState(() => typeof crypto !== "undefined" ? crypto.randomUUID() : Math.random().toString(36));
   const [showSmsModal, setShowSmsModal] = useState(false);
   const [smsPhone, setSmsPhone] = useState("");
   const [smsMessage, setSmsMessage] = useState("");
   const [smsStatus, setSmsStatus] = useState<string | null>(null);
+  const [pdfName, setPdfName] = useState<string | null>(null);
+  const [pdfUploading, setPdfUploading] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<ChatInputHandle>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -85,7 +66,6 @@ export default function Home() {
     };
 
     setMessages((prev) => [...prev, userMsg]);
-    setInput("");
     setIsLoading(true);
 
     try {
@@ -106,12 +86,12 @@ export default function Home() {
         role: "agent",
         content: data.response,
         toolsUsed: data.toolsUsed,
+        agentsCalled: data.agentsCalled,
         timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, agentMsg]);
 
-      // If the response contains an SMS digest, offer to send it
       if (data.toolsUsed?.some((t: ToolCall) => t.name === "generate_sms_digest")) {
         const digestMatch = data.response.match(/[🏛🏥🛣📚].*#BudgetWatch/);
         if (digestMatch) {
@@ -137,6 +117,37 @@ export default function Home() {
       sendMessage(input);
     }
   };
+
+  const uploadPdf = useCallback(async (file: File) => {
+    setPdfUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("sessionId", sessionId);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload failed");
+      setPdfName(file.name);
+      const sysMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "agent",
+        content: `📄 **${file.name}** attached. Ask me anything about this budget PDF — I'll feed it to the BudgetAnalyst via Gemini 1.5 Pro's long context.`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, sysMsg]);
+    } catch (err) {
+      const errorMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "agent",
+        content: `⚠️ Upload failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMsg]);
+    } finally {
+      setPdfUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }, [sessionId]);
 
   const sendSms = async () => {
     if (!smsPhone || !smsMessage) return;
@@ -173,11 +184,29 @@ export default function Home() {
               County Budget Watchdog
             </h1>
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              Nairobi City County • FY 2025/2026 • Powered by Gemini 1.5 Pro
+              Multi-agent system • Nairobi City County FY 2025/2026 • Gemini 1.5 Pro
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf,.pdf"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) uploadPdf(f);
+            }}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={pdfUploading}
+            className="quick-action text-xs"
+            title="Upload a county budget PDF for the BudgetAnalyst to analyze"
+          >
+            {pdfUploading ? "⏳ Uploading…" : pdfName ? `📄 ${pdfName.slice(0, 18)}${pdfName.length > 18 ? "…" : ""}` : "📄 Upload Budget PDF"}
+          </button>
           <button
             onClick={() => setShowSmsModal(true)}
             className="quick-action text-xs"
@@ -185,8 +214,8 @@ export default function Home() {
             📱 Send SMS Digest
           </button>
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
-               style={{ background: "var(--accent-green-dim)", color: "var(--accent-green)" }}>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+               style={{ background: "var(--bg-glass)", color: "var(--text-primary)", border: "1px solid var(--border-glass)" }}>
+            <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
             Agent Online
           </div>
         </div>
@@ -221,9 +250,9 @@ export default function Home() {
                     🐕 Habari! I&apos;m the Budget Watchdog
                   </h2>
                   <p className="text-sm mb-4" style={{ color: "var(--text-secondary)", lineHeight: 1.7 }}>
-                    I help you understand how <strong style={{ color: "var(--accent-green)" }}>KES 37.4 billion</strong> of
-                    Nairobi County&apos;s budget is allocated across <strong style={{ color: "var(--accent-amber)" }}>13 departments</strong> and{" "}
-                    <strong style={{ color: "var(--accent-blue)" }}>85 wards</strong>. Ask me anything about
+                    I help you understand how <strong style={{ color: "var(--text-primary)" }}>KES 37.4 billion</strong> of
+                    Nairobi County&apos;s budget is allocated across <strong style={{ color: "var(--text-primary)" }}>13 departments</strong> and{" "}
+                    <strong style={{ color: "var(--text-primary)" }}>85 wards</strong>. Ask me anything about
                     the budget — I&apos;ll search the real data and give you plain-language answers.
                   </p>
                   <p className="text-xs" style={{ color: "var(--text-muted)" }}>
@@ -231,17 +260,15 @@ export default function Home() {
                   </p>
                 </div>
 
-                {/* Quick actions */}
-                <div className="flex flex-wrap gap-2">
+            {/* Quick actions */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {QUICK_ACTIONS.map((action) => (
-                    <button
+                    <SuggestionChip
                       key={action.label}
+                      label={action.label}
+                      hint={action.hint}
                       onClick={() => sendMessage(action.query)}
-                      className="quick-action"
-                    >
-                      <span>{action.icon}</span>
-                      {action.label}
-                    </button>
+                    />
                   ))}
                 </div>
               </div>
@@ -249,58 +276,24 @@ export default function Home() {
 
             {/* Messages */}
             <div className="max-w-3xl mx-auto">
-              {messages.map((msg, i) => (
-                <div
+              {messages.map((msg) => (
+                <Message
                   key={msg.id}
-                  className={`mb-4 animate-fade-in-up flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                  style={{ animationDelay: `${i * 0.05}s` }}
-                >
-                  <div className={`max-w-[85%] ${msg.role === "user" ? "chat-bubble-user" : "chat-bubble-agent"} px-5 py-3.5`}>
-                    {/* Tool call badges */}
-                    {msg.toolsUsed && msg.toolsUsed.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mb-2.5">
-                        {msg.toolsUsed.map((tool, j) => (
-                          <span key={j} className="tool-badge">
-                            {TOOL_LABELS[tool.name] || tool.name}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {/* Message content */}
-                    {msg.role === "agent" ? (
-                      <div
-                        className="agent-text text-sm"
-                        style={{ color: "var(--text-primary)", lineHeight: 1.7 }}
-                        dangerouslySetInnerHTML={{ __html: formatAgentText(msg.content) }}
-                      />
-                    ) : (
-                      <p className="text-sm" style={{ color: "var(--text-primary)", lineHeight: 1.6 }}>
-                        {msg.content}
-                      </p>
-                    )}
-                    <div className="mt-2 text-right">
-                      <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                        {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                  role={msg.role}
+                  content={msg.content}
+                  timestamp={msg.timestamp}
+                  toolsUsed={msg.toolsUsed}
+                  agentsCalled={msg.agentsCalled}
+                />
               ))}
 
               {/* Typing indicator */}
               {isLoading && (
-                <div className="mb-4 flex justify-start animate-fade-in">
-                  <div className="chat-bubble-agent px-5 py-4 flex items-center gap-3">
-                    <div className="flex gap-1">
-                      <div className="typing-dot" />
-                      <div className="typing-dot" />
-                      <div className="typing-dot" />
-                    </div>
-                    <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                      Analyzing budget data...
-                    </span>
-                  </div>
-                </div>
+                <Message
+                  role="agent"
+                  content=""
+                  pending={true}
+                />
               )}
 
               <div ref={messagesEndRef} />
@@ -316,7 +309,7 @@ export default function Home() {
                       onClick={() => sendMessage(action.query)}
                       className="quick-action text-xs"
                     >
-                      <span>{action.icon}</span>
+                      <span>{action.hint.split(' ')[0]}</span>
                       {action.label}
                     </button>
                   ))}
@@ -327,42 +320,14 @@ export default function Home() {
 
           {/* Input area */}
           <div className="px-6 py-4" style={{ background: "var(--bg-secondary)", borderTop: "1px solid var(--border-glass)" }}>
-            <div className="max-w-3xl mx-auto flex gap-3">
-              <textarea
+            <div className="max-w-3xl mx-auto">
+              <ChatInput
                 ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask about the Nairobi County budget..."
-                rows={1}
-                className="chat-input flex-1 px-5 py-3 resize-none"
+                onSubmit={sendMessage}
                 disabled={isLoading}
+                isStreaming={isLoading}
               />
-              <button
-                onClick={() => sendMessage(input)}
-                disabled={!input.trim() || isLoading}
-                className="send-btn"
-              >
-                {isLoading ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                  </span>
-                ) : (
-                  <>
-                    Send
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="M22 2L11 13" /><path d="M22 2L15 22L11 13L2 9L22 2Z" />
-                    </svg>
-                  </>
-                )}
-              </button>
             </div>
-            <p className="max-w-3xl mx-auto text-[10px] mt-2 text-center" style={{ color: "var(--text-muted)" }}>
-              County Budget Watchdog analyzes Nairobi City County FY 2025/2026 budget data using Gemini 1.5 Pro. Built for GDG Nairobi Agentathon 2026.
-            </p>
           </div>
         </main>
       </div>
@@ -405,7 +370,7 @@ export default function Home() {
             </div>
 
             {smsStatus && (
-              <p className="text-sm mb-3 font-medium" style={{ color: smsStatus.startsWith("✅") ? "var(--accent-green)" : smsStatus.startsWith("❌") ? "var(--accent-red)" : "var(--text-secondary)" }}>
+              <p className="text-sm mb-3 font-medium" style={{ color: smsStatus.startsWith("✅") ? "var(--text-primary)" : smsStatus.startsWith("❌") ? "var(--text-muted)" : "var(--text-secondary)" }}>
                 {smsStatus}
               </p>
             )}

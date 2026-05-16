@@ -100,7 +100,7 @@ export function Chat({ greeting = "Hello" }: { greeting?: string }) {
         {isEmpty ? (
           <div className="mx-auto flex h-full max-w-3xl flex-col justify-center px-4 pb-12 pt-24">
             <GradientHeading>{greeting}, ward resident.</GradientHeading>
-            <p className="mt-2 text-2xl text-zinc-500 dark:text-zinc-400">
+            <p className="mt-2 text-2xl text-zinc-500">
               How can I help you read the county budget today?
             </p>
             <div className="mt-10 grid grid-cols-1 gap-3 sm:grid-cols-2">

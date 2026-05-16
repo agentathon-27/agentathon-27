@@ -1,25 +1,25 @@
-// POST /api/query — Chat with the Budget Watchdog agent
+// POST /api/query — Chat with the orchestrator agent.
 import { NextRequest, NextResponse } from "next/server";
-import { chatWithAgent } from "@/lib/gemini";
+import { runOrchestrator } from "@/lib/agents/orchestrator";
+import { flattenZodError, queryRequestSchema } from "@/lib/validation/chat";
+
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { message, sessionId } = body;
-
-    if (!message || typeof message !== "string") {
-      return NextResponse.json({ error: "Message is required" }, { status: 400 });
+    const raw = await req.json();
+    const parsed = queryRequestSchema.safeParse(raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: flattenZodError(parsed.error) }, { status: 400 });
     }
 
-    if (!sessionId || typeof sessionId !== "string") {
-      return NextResponse.json({ error: "Session ID is required" }, { status: 400 });
-    }
-
-    const result = await chatWithAgent(sessionId, message.trim());
+    const { message, sessionId } = parsed.data;
+    const result = await runOrchestrator(sessionId, message);
 
     return NextResponse.json({
       response: result.text,
       toolsUsed: result.toolsUsed,
+      agentsCalled: result.agentsCalled,
     });
   } catch (error) {
     console.error("Agent query error:", error);

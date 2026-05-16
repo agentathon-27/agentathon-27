@@ -1,30 +1,25 @@
-import type { ChatMessage, ChatRole } from "@/lib/gcp/gemini";
+// Zod schemas for API inputs. Per .agent/rules.md §3 every API input must be
+// Zod-validated. Schemas live here and are re-used across routes.
+import { z } from "zod";
 
-const ROLES: readonly ChatRole[] = ["user", "model"] as const;
+export const queryRequestSchema = z.object({
+  message: z.string().trim().min(1, "message is required").max(8000, "message too long"),
+  sessionId: z.string().trim().min(1, "sessionId is required"),
+});
+export type QueryRequest = z.infer<typeof queryRequestSchema>;
 
-export function parseChatPayload(input: unknown): { messages: ChatMessage[] } {
-  if (typeof input !== "object" || input === null) {
-    throw new Error("Body must be a JSON object");
-  }
-  const { messages } = input as { messages?: unknown };
-  if (!Array.isArray(messages) || messages.length === 0) {
-    throw new Error("'messages' must be a non-empty array");
-  }
-  const parsed: ChatMessage[] = messages.map((m, i) => {
-    if (typeof m !== "object" || m === null) {
-      throw new Error(`messages[${i}] must be an object`);
-    }
-    const { role, content } = m as { role?: unknown; content?: unknown };
-    if (typeof role !== "string" || !ROLES.includes(role as ChatRole)) {
-      throw new Error(`messages[${i}].role must be 'user' or 'model'`);
-    }
-    if (typeof content !== "string" || content.trim().length === 0) {
-      throw new Error(`messages[${i}].content must be a non-empty string`);
-    }
-    if (content.length > 8000) {
-      throw new Error(`messages[${i}].content exceeds 8000 chars`);
-    }
-    return { role: role as ChatRole, content };
-  });
-  return { messages: parsed };
+export const smsRequestSchema = z.object({
+  phone: z.string().trim().min(7, "phone is required"),
+  message: z.string().trim().min(1, "message is required").max(480, "SMS body too long"),
+});
+export type SmsRequest = z.infer<typeof smsRequestSchema>;
+
+export const uploadMetadataSchema = z.object({
+  sessionId: z.string().trim().min(1, "sessionId is required"),
+});
+export type UploadMetadata = z.infer<typeof uploadMetadataSchema>;
+
+/** Helper to normalize a Zod error into a single-line message for HTTP 400s. */
+export function flattenZodError(err: z.ZodError): string {
+  return err.errors.map((e) => `${e.path.join(".") || "body"}: ${e.message}`).join("; ");
 }

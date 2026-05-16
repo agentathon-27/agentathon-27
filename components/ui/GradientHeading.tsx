@@ -6,7 +6,7 @@ export interface GradientHeadingProps {
 export function GradientHeading({ children, className = "" }: GradientHeadingProps) {
   return (
     <h1
-      className={`bg-linear-to-r from-[#4285f4] via-[#9b72cb] to-[#d96570] bg-clip-text text-4xl font-medium tracking-tight text-transparent sm:text-5xl ${className}`}
+      className={`bg-linear-to-r from-black via-zinc-600 to-black bg-clip-text text-4xl font-medium tracking-tight text-transparent sm:text-5xl dark:from-white dark:via-zinc-400 dark:to-white ${className}`}
     >
       {children}
     </h1>

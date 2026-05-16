@@ -2,6 +2,159 @@
 
 > **Challenge Track 04** — Build an AI agent that turns a 400-page county budget PDF into plain-language answers for ward residents. Monitor gazette notices for amendments. Generate SMS budget digests.
 
+🔗 **Live demo:** _<replace with Cloud Run URL after deploy>_
+📂 **Repo:** https://github.com/agentathon-27/agentathon-27
+
+---
+
+## 🚀 What's Built
+
+A working **multi-agent system** that answers Kenyan citizens' questions about the **Nairobi City County FY 2025/2026 budget (KES 37.4B across 13 departments and 85 wards)**, monitors Kenya Gazette amendments, and ships SMS-sized digests via Africa's Talking.
+
+### Architecture (as deployed)
+
+```
+                       ┌──────────────────────────────────┐
+   User (web chat) ──► │  Orchestrator (root agent)        │
+                       │  Plans → delegates → composes     │
+                       │  Gemini 1.5 Pro · function calling│
+                       └──┬───────────┬───────────┬────────┘
+                          │           │           │
+              delegate_to_…analyst   …monitor   …generator
+                          ▼           ▼           ▼
+                 ┌────────────┐ ┌──────────┐ ┌────────────┐
+                 │BudgetAnalyst│ │ Gazette  │ │  Digest    │
+                 │             │ │ Monitor  │ │ Generator  │
+                 │ tools:      │ │ tools:   │ │ tools:     │
+                 │  - search_  │ │  search_ │ │  generate_ │
+                 │    budget_  │ │   gazette│ │    digest  │
+                 │    data     │ │  summa-  │ │   send_sms │
+                 │  - compare_ │ │   rize_  │ │            │
+                 │    allocs   │ │   amend  │ │ Africa's   │
+                 │  - get_ward_│ │          │ │ Talking    │
+                 │    summary  │ │ Kenya    │ │            │
+                 │  - explain_ │ │ Gazette  │ │            │
+                 │    term     │ │ corpus   │ │            │
+                 │  - PDF long-│ │          │ │            │
+                 │    context  │ │          │ │            │
+                 └─────────────┘ └──────────┘ └────────────┘
+```
+
+**Genuine agentic behavior (per challenge rule):**
+- **Planning** — orchestrator decides which specialist(s) to invoke per turn.
+- **Tool use** — each sub-agent has its own function-calling tool surface.
+- **Memory** — conversational history persists across turns per session ([lib/agents/sessions.ts](lib/agents/sessions.ts)).
+- **Autonomous action** — `/api/cron` (gazette scanner) runs on Cloud Scheduler and can fan out SMS alerts.
+
+### Stack as built
+
+| Layer | Tech | File |
+|---|---|---|
+| Web UI | Next.js 15 (App Router) + React 19 + Tailwind 4 | [app/page.tsx](app/page.tsx) |
+| Orchestrator | Gemini 1.5 Pro + function calling (TS SDK) | [lib/agents/orchestrator.ts](lib/agents/orchestrator.ts) |
+| BudgetAnalyst | Gemini + structured tools + **PDF long-context** via Gemini Files API | [lib/agents/budget-analyst.ts](lib/agents/budget-analyst.ts) |
+| GazetteMonitor | Gemini + curated Kenya Gazette corpus | [lib/agents/gazette-monitor.ts](lib/agents/gazette-monitor.ts) |
+| DigestGenerator | Gemini + SMS digest tool + Africa's Talking sender | [lib/agents/digest-generator.ts](lib/agents/digest-generator.ts) |
+| SMS | Africa's Talking REST (sandbox + demo-mode fallback) | [lib/sms/africastalking.ts](lib/sms/africastalking.ts) |
+| Validation | Zod on every API input | [lib/validation/chat.ts](lib/validation/chat.ts) |
+| Production stubs | Document AI + BigQuery wired-but-deferred (see §2 below) | [lib/gcp/](lib/gcp/) |
+| Deployment | Docker → Google Cloud Run | [Dockerfile](Dockerfile) |
+
+### Production-path stubs (deliberately deferred under deadline)
+
+Per [.agent/rules.md](.agent/rules.md) §2.1 and §2.4 the production path uses **Document AI Layout Parser** for PDF table extraction and **BigQuery** for structured budget storage. The demo ships these as documented stubs ([lib/gcp/documentai.ts](lib/gcp/documentai.ts), [lib/gcp/bigquery.ts](lib/gcp/bigquery.ts)) and routes live PDF analysis through **Gemini 1.5 Pro's long-context** instead — same user experience, half the moving parts under a 6-hour window.
+
+---
+
+## 🏃 How to Run Locally
+
+```bash
+# 1. Clone and install
+git clone https://github.com/agentathon-27/agentathon-27.git
+cd agentathon-27
+npm install
+
+# 2. Configure environment
+cp .env.example .env.local
+# Set GOOGLE_API_KEY (Gemini API key from https://aistudio.google.com)
+# Optionally set AT_USERNAME and AT_API_KEY for real SMS (defaults to demo mode)
+
+# 3. Run dev server
+npm run dev
+# Open http://localhost:3000
+```
+
+**Try these queries:**
+- *"Compare health and transport infrastructure spending"* → routes to BudgetAnalyst
+- *"What are the latest Kenya Gazette amendments to the Nairobi budget?"* → routes to GazetteMonitor
+- *"SMS me a digest about roads spending"* → routes to DigestGenerator
+- Upload a real county budget PDF via the **📄 Upload Budget PDF** button → BudgetAnalyst answers from the document
+
+## ☁️ How to Interact with the Deployed Version
+
+1. Open the **Live demo** URL above.
+2. Try the quick-action chips to see all three sub-agents fire.
+3. Click **📄 Upload Budget PDF** to attach a real Kenyan county budget PDF — subsequent questions will be answered from that document via Gemini's 1M-token context window.
+4. Click **📱 Send SMS Digest** to deliver a budget summary to any Kenyan number (demo mode by default; set `AT_API_KEY` for real delivery).
+
+## ☁️ Deploy to Cloud Run
+
+The project is configured for one-click deployment via **Google Cloud Build** or manual deployment via `gcloud`.
+
+### Option 1: Automated Deployment (Cloud Build)
+
+This is the recommended way. It uses the [cloudbuild.yaml](cloudbuild.yaml) file to build the image and deploy it.
+
+```bash
+gcloud builds submit --config cloudbuild.yaml --substitutions=_SERVICE_NAME=budget-watchdog,_REGION=africa-south1
+```
+
+### Option 2: Manual Deployment
+
+```bash
+# From repo root, with gcloud authenticated to your GCP project:
+gcloud run deploy budget-watchdog \
+  --source . \
+  --region africa-south1 \
+  --allow-unauthenticated
+```
+
+Cloud Run will use the [Dockerfile](Dockerfile) (multi-stage, Next.js standalone output, port 8080).
+
+### Environment Variables
+
+Ensure the following environment variables are set in Cloud Run (either via `--set-env-vars` or Secret Manager):
+
+- `GOOGLE_API_KEY`: Your Gemini API key.
+- `AT_USERNAME`: Africa's Talking username (defaults to `sandbox`).
+- `AT_API_KEY`: Africa's Talking API key.
+- `CRON_SECRET`: Secret token for the `/api/cron` endpoint.
+
+To schedule the gazette-amendment scanner:
+
+```bash
+gcloud scheduler jobs create http gazette-scan \
+  --schedule="0 7 * * *" \
+  --uri="https://<CLOUD_RUN_URL>/api/cron?secret=$CRON_SECRET" \
+  --http-method=GET
+```
+
+## 👥 Team
+
+_Add team members and roles here before submission._
+
+| Name | Role |
+|---|---|
+| TBD | Orchestrator / Backend |
+| TBD | Frontend / UX |
+| TBD | Data / Gazette corpus |
+| TBD | DevOps / Cloud Run |
+| TBD | Product / Demo |
+
+## 📸 Screenshots
+
+_Add screenshots of the chat UI, multi-agent badges, and SMS modal before submission._
+
 ---
 
 ## 📋 Competition Details
@@ -57,11 +210,11 @@ All four must be submitted via the submission form (shared on-screen during even
 
 ### README Must Include:
 - [x] The problem being solved (plain language)
-- [ ] Agent architecture — which agents, what tools, how they communicate
-- [ ] How to run locally
-- [ ] How to interact with the deployed version
-- [ ] Screenshots or demo video link
-- [ ] Team members and roles
+- [x] Agent architecture — which agents, what tools, how they communicate (see top of README)
+- [x] How to run locally (see top of README)
+- [x] How to interact with the deployed version (see top of README)
+- [ ] Screenshots or demo video link (placeholder near top — fill in before submission)
+- [ ] Team members and roles (placeholder near top — fill in before submission)
 
 ---
 

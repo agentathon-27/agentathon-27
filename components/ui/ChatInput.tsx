@@ -68,11 +68,11 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
 
   return (
     <div className="w-full">
-      <div className="relative flex items-end gap-2 rounded-3xl border border-zinc-200 bg-white px-3 py-2 shadow-[0_2px_24px_-12px_rgba(0,0,0,0.18)] transition focus-within:border-zinc-300 focus-within:shadow-[0_4px_32px_-12px_rgba(0,0,0,0.22)] dark:border-zinc-800 dark:bg-zinc-900/80 dark:focus-within:border-zinc-700">
+      <div className="relative flex items-end gap-2 rounded-3xl border border-zinc-200 bg-white px-3 py-2 shadow-[0_2px_24px_-12px_rgba(0,0,0,0.18)] transition focus-within:border-zinc-300 focus-within:shadow-[0_4px_32px_-12px_rgba(0,0,0,0.22)] dark:border-zinc-800 dark:bg-zinc-900/80 dark:focus-within:border-zinc-700 chat-input">
         <button
           type="button"
           aria-label="Attach"
-          className="mb-1 grid h-9 w-9 shrink-0 place-items-center rounded-full text-zinc-500 transition hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          className="mb-1 grid h-9 w-9 shrink-0 place-items-center rounded-full text-muted transition hover:bg-zinc-100 dark:hover:bg-zinc-800"
         >
           <PlusIcon className="h-5 w-5" />
         </button>
@@ -84,14 +84,14 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
           rows={1}
           placeholder={placeholder}
           disabled={disabled}
-          className="max-h-60 flex-1 resize-none bg-transparent px-1 py-2 text-[15px] leading-6 text-zinc-900 outline-none placeholder:text-zinc-400 disabled:opacity-60 dark:text-zinc-100"
+          className="max-h-60 flex-1 resize-none bg-transparent px-1 py-2 text-[15px] leading-6 text-primary outline-none placeholder:text-muted disabled:opacity-60"
         />
         {isStreaming ? (
           <button
             type="button"
             onClick={onStop}
             aria-label="Stop generating"
-            className="mb-1 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-zinc-900 text-white transition hover:opacity-90 dark:bg-zinc-100 dark:text-zinc-900"
+            className="mb-1 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-background transition hover:opacity-90"
           >
             <StopIcon className="h-3.5 w-3.5" />
           </button>
@@ -101,14 +101,14 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(function Ch
             onClick={submit}
             disabled={!hasText || disabled}
             aria-label="Send"
-            className="mb-1 grid h-9 w-9 shrink-0 place-items-center rounded-full text-white transition disabled:cursor-not-allowed disabled:opacity-30 enabled:bg-linear-to-br enabled:from-[#4285f4] enabled:via-[#9b72cb] enabled:to-[#d96570] enabled:hover:brightness-110"
+            className="mb-1 grid h-9 w-9 shrink-0 place-items-center rounded-full text-background transition disabled:cursor-not-allowed disabled:opacity-30 enabled:bg-primary enabled:hover:brightness-110"
           >
             <SendIcon className="h-4 w-4" />
           </button>
         )}
       </div>
-      <p className="mt-2 text-center text-xs text-zinc-500 dark:text-zinc-500">
-        Budget Watchdog can be inaccurate. Verify against the source gazette.
+      <p className="mt-2 text-center text-[10px] text-muted">
+        Budget Watchdog analyzes Nairobi City County FY 2025/2026 budget data using Gemini 1.5 Pro. Built for GDG Nairobi Agentathon 2026.
       </p>
     </div>
   );
